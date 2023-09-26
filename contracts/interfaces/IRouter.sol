@@ -35,7 +35,7 @@ interface IRouter {
         uint256 amountBMin,
         address to,
         uint256 deadline
-    ) public returns (uint256 amountA, uint256 amountB);
+    ) external returns (uint256 amountA, uint256 amountB);
 
     function removeLiquidityETH(
         address token,
@@ -45,5 +45,5 @@ interface IRouter {
         uint256 amountETHMin,
         address to,
         uint256 deadline
-    ) public returns (uint256 amountToken, uint256 amountETH);
+    ) external returns (uint256 amountToken, uint256 amountETH);
 }

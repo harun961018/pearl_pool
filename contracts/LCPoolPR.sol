@@ -2,7 +2,6 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import "./interfaces/IGuage.sol";
-import "./interfaces/IPair.sol";
 import "./interfaces/IPairFactory.sol";
 import "./interfaces/IRouter.sol";
 
@@ -123,9 +122,9 @@ contract LCPoolPR is Ownable {
 
     dpvar[3] = _distributeFee(info.basketId, (info.token==address(0)?WETH:info.token), dpvar[3], 1);
     (uint256 poolId, uint256 liquidity) = _deposit(info, dpvar[3], mtoken[0], percent[0], paths, minAmounts[0]);
-    ILCPoolPCv3Ledger(ledger).updateInfo(info.account, poolId, info.basketId, liquidity, dpvar[0], dpvar[2], dpvar[1], true);
+    ILCPoolPRLedger(ledger).updateInfo(info.account, poolId, info.basketId, liquidity, dpvar[0], dpvar[2], dpvar[1], true);
 
-    return (tokenId, liquidity);
+    return (poolId, liquidity);
   }
 
   function withdraw(
@@ -165,7 +164,7 @@ contract LCPoolPR is Ownable {
     }
     // return tokenId, withdraw liquidity amount, receive token amount
     (wvar[3], wvar[7], wvar[4]) = _withdraw(info, wvar[5], mtoken[0], paths, minAmounts[0]);
-    ILCPoolPCv3Ledger(ledger).updateInfo(info.account, wvar[3], info.basketId, wvar[7], wvar[0], wvar[2], wvar[1], false);
+    ILCPoolPRLedger(ledger).updateInfo(info.account, wvar[3], info.basketId, wvar[7], wvar[0], wvar[2], wvar[1], false);
 
     wvar[4] = _distributeFee(info.basketId, isCoin?WETH:info.token, wvar[4], 0);
 
@@ -264,8 +263,9 @@ contract LCPoolPR is Ownable {
 
     if (reinvestAble && rvar[0] != 0 && rvar[1] >= reinvestEdge) {
       rvar[3] = IERC20(rewardToken).balanceOf(address(this));
+      uint256 deadline = block.timestamp + 50000;
       (rvar[4], rvar[5]) = _depositSwap(rewardToken, rvar[1], info.pair, mtoken, percents, paths);
-      (rvar[2], , ) = _increaseLiquidity(info.pair, info.stable, rvar[4], rvar[5], minAmounts[0], minAmounts[1]);
+      (, , rvar[2]) = _increaseLiquidity(info.pair, info.stable, info.guage, rvar[4], rvar[5], minAmounts, deadline);
       rvar[3] = rvar[1] + IERC20(rewardToken).balanceOf(address(this)) - rvar[3];
       emit ReInvest(info.pair[0], info.pair[1], rvar[0], rvar[1], rvar[2]);
     }
@@ -285,7 +285,7 @@ contract LCPoolPR is Ownable {
   ) internal returns(uint256, uint256) {
     (uint256 amount0, uint256 amount1) = _depositSwap(info.token, iAmount, info.pair, mtoken, percents, paths);
     uint256 poolId = ILCPoolPRLedger(ledger).poolToId(info.pair[0], info.pair[1]); // poolId
-    uint128 liquidity = 0;
+    uint256 liquidity = 0;
     uint256[] memory amount = new uint256[](2);
     if (poolId == 0) {
       address pair = IPairFactory(pairFactory).getPair(info.pair[0], info.pair[1], info.stable);
@@ -296,10 +296,10 @@ contract LCPoolPR is Ownable {
 
     uint256 deadline = block.timestamp + 50000;
     
-    (liquidity, amount[0], amount[1]) = _increaseLiquidity(info.pair, info.stable, info.guage, amount0, amount1, minAmounts[0], minAmounts[1], deadline);
+    (amount[0], amount[1], liquidity) = _increaseLiquidity(info.pair, info.stable, info.guage, amount0, amount1, minAmounts, deadline);
     _refundReserveToken(info.account, info.pair[0], info.pair[1], amount0-amount[0], amount1-amount[1]);
     emit Deposit(poolId, liquidity);
-    return (poolId, uint256(liquidity));
+    return (poolId, liquidity);
   }
 
   function _increaseLiquidity(
@@ -314,7 +314,7 @@ contract LCPoolPR is Ownable {
     
     _approveTokenIfNeeded(tokens[0], router, amount0ToAdd);
     _approveTokenIfNeeded(tokens[1], router, amount1ToAdd);
-    (liquidity, amount0, amount1) = IRouter(router).addLiquidity(
+    (amount0, amount1, liquidity) = IRouter(router).addLiquidity(
         tokens[0],
         tokens[1],
         stable,
@@ -418,16 +418,16 @@ contract LCPoolPR is Ownable {
     address[2] calldata tokens,
     bool stable,
     address guage,
-    uint128 liquidity,
+    uint256 liquidity,
     uint256 amount0Min,
     uint256 amount1Min,
     uint256 deadline
   ) internal returns (uint256 amount0, uint256 amount1) {
     
     IGuage(guage).withdraw(liquidity);
-    address pair = IPairFactory(pairFactory).getPair(token[0], token[1], stable);
+    address pair = IPairFactory(pairFactory).getPair(tokens[0], tokens[1], stable);
     _approveTokenIfNeeded(pair, router, liquidity);
-    (amount0, amount1) = IRouter(router).removeLiquidity(tokens[0], tokens[1], stable, liquidity, amountAMin, amountBMin, address(this), deadline);
+    (amount0, amount1) = IRouter(router).removeLiquidity(tokens[0], tokens[1], stable, liquidity, amount0Min, amount1Min, address(this), deadline);
   }
 
   // mode 0: withdraw 1: deposit 2: reward
@@ -497,7 +497,7 @@ contract LCPoolPR is Ownable {
   }
 
   function getPairIndex(address pair) public view returns(uint256) {
-    uint256 pairLength = IPairFactory(pairFactory).allPairsLength;
+    uint256 pairLength = IPairFactory(pairFactory).allPairsLength();
     uint256 index = 0;
     while (index < pairLength) {
       if (pair == IPairFactory(pairFactory).allPairs(index)) {

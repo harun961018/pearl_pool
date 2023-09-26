@@ -6,7 +6,7 @@ interface IGuage {
   function withdraw(uint256 amount) external;
   function withdrawAllAndHarvest() external;
   function balanceOf(address account) external view returns (uint256);
-  function earned(address account) public view returns (uint256);
+  function earned(address account) external view returns (uint256);
   function getReward() external;
   function rewards(address account) external view returns (uint256);
 }

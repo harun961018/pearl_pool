@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity >=0.8.0 <0.9.0;
 
-import "./interfaces/IMasterChefv3.sol";
+import "./interfaces/IGuage.sol";
 import "./interfaces/IFeeTierStrate.sol";
 
 import "./utils/Ownable.sol";
@@ -90,7 +90,7 @@ contract LCPoolPRLedger is Ownable {
     }
     ivar[5] += (ivar[0] > 0 ? ivar[2] * MULTIPLIER / ivar[0] : 0);
     
-    (ivar[3], ivar[4]) = getSingleReward(acc, tId, bId, reward, false);
+    (ivar[3], ivar[4]) = getSingleReward(acc, pId, bId, reward, false);
 
     bool reInvested = false;
     if (exLp > 0) {
@@ -112,11 +112,11 @@ contract LCPoolPRLedger is Ownable {
       prevReward: rewardAfter,
       tvl: increase ? ivar[0] + liquidity : (ivar[0] >= liquidity ? ivar[0] - liquidity : 0),
       rtr: ivar[5],
-      reInvestIndex: reInvestInfo[tId].length,
+      reInvestIndex: reInvestInfo[pId].length,
       reInvested: reInvested,
       updatedAt: block.timestamp
     });
-    poolInfoAll[tId].push(tmpRTR);
+    poolInfoAll[pId].push(tmpRTR);
     
     if (increase) {
       userInfo[acc][pId][bId].amount += liquidity;
@@ -154,7 +154,7 @@ contract LCPoolPRLedger is Ownable {
           jvar[3] = 0;
         }
         if (poolInfoAll[pId][index].reInvested) {
-          jvar[0] += jvar[3] * reInvestInfo[tId][poolInfoAll[pId][index].reInvestIndex-1].liquidity / reInvestInfo[tId][poolInfoAll[tId][index].reInvestIndex-1].reward;
+          jvar[0] += jvar[3] * reInvestInfo[pId][poolInfoAll[pId][index].reInvestIndex-1].liquidity / reInvestInfo[pId][poolInfoAll[pId][index].reInvestIndex-1].reward;
           t0 = index;
           jvar[3] = 0;
         }
