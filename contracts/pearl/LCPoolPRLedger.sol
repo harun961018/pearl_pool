@@ -6,14 +6,13 @@ import "./interfaces/IFeeTierStrate.sol";
 
 import "./utils/Ownable.sol";
 
-contract LCPoolPCv3Ledger is Ownable {
-  address public v3MasterChef;
+contract LCPoolPRLedger is Ownable {
   address public feeStrate;
 
   uint256 private constant MULTIPLIER = 1_0000_0000_0000_0000;
 
   // token0 -> token1 -> fee -> nftId
-  mapping (address => mapping(address => mapping(uint24 => uint256))) public poolToNftId;
+  mapping (address => mapping(address => uint256)) public poolToId;
 
   struct RewardTVLRate {
     uint256 reward;
@@ -52,33 +51,29 @@ contract LCPoolPCv3Ledger is Ownable {
   }
 
   constructor (
-    address _v3MasterChef,
     address _feeStrate
   ) {
-    require(_v3MasterChef != address(0), "LC pool ledger: master chef");
     require(_feeStrate != address(0), "LC pool ledger: feeStrate");
-
-    v3MasterChef = _v3MasterChef;
     feeStrate = _feeStrate;
     managers[msg.sender] = true;
   }
 
-  function setPoolToNftId(address token0, address token1, uint24 fee, uint256 id) public onlyManager {
-    poolToNftId[token0][token1][fee] = id;
+  function setPoolToId(address token0, address token1, uint256 id) public onlyManager {
+    poolToId[token0][token1] = id;
   }
 
-  function getLastRewardAmount(uint256 tokenId) public view returns(uint256) {
-    if (tokenId != 0 && poolInfoAll[tokenId].length > 0) {
-      return poolInfoAll[tokenId][poolInfoAll[tokenId].length-1].prevReward;
+  function getLastRewardAmount(uint256 poolId) public view returns(uint256) {
+    if (poolId != 0 && poolInfoAll[poolId].length > 0) {
+      return poolInfoAll[poolId][poolInfoAll[poolId].length-1].prevReward;
     }
     return 0;
   }
 
-  function getUserLiquidity(address account, uint256 tokenId, uint256 basketId) public view returns(uint256) {
-    return userInfo[account][tokenId][basketId].amount;
+  function getUserLiquidity(address account, uint256 poolId, uint256 basketId) public view returns(uint256) {
+    return userInfo[account][poolId][basketId].amount;
   }
 
-  function updateInfo(address acc, uint256 tId, uint256 bId, uint256 liquidity, uint256 reward, uint256 rewardAfter, uint256 exLp, bool increase) public onlyManager {
+  function updateInfo(address acc, uint256 pId, uint256 bId, uint256 liquidity, uint256 reward, uint256 rewardAfter, uint256 exLp, bool increase) public onlyManager {
     uint256[] memory ivar = new uint256[](6);
     ivar[0] = 0;      // prevTvl
     ivar[1] = 0;      // prevTotalReward
@@ -86,8 +81,8 @@ contract LCPoolPCv3Ledger is Ownable {
     ivar[3] = 0;      // exUserLp
     ivar[4] = 0;      // userReward
     ivar[5] = 0;      // rtr
-    if (poolInfoAll[tId].length > 0) {
-      RewardTVLRate memory prevRTR = poolInfoAll[tId][poolInfoAll[tId].length-1];
+    if (poolInfoAll[pId].length > 0) {
+      RewardTVLRate memory prevRTR = poolInfoAll[pId][poolInfoAll[pId].length-1];
       ivar[0] = prevRTR.tvl;
       ivar[1] = prevRTR.reward;
       ivar[2] = (ivar[2] >= prevRTR.prevReward) ? (ivar[2] - prevRTR.prevReward) : 0;
@@ -104,11 +99,11 @@ contract LCPoolPCv3Ledger is Ownable {
         liquidity: exLp,
         updatedAt: block.timestamp
       });
-      reInvestInfo[tId].push(tmp);
+      reInvestInfo[pId].push(tmp);
       reInvested = true;
       ivar[3] += ivar[4] * exLp / reward;
       ivar[0] += exLp;
-      userInfo[acc][tId][bId].amount += ivar[3];
+      userInfo[acc][pId][bId].amount += ivar[3];
       ivar[4] = 0;
     }
 
@@ -124,42 +119,42 @@ contract LCPoolPCv3Ledger is Ownable {
     poolInfoAll[tId].push(tmpRTR);
     
     if (increase) {
-      userInfo[acc][tId][bId].amount += liquidity;
-      userInfo[acc][tId][bId].debtReward = ivar[4];
+      userInfo[acc][pId][bId].amount += liquidity;
+      userInfo[acc][pId][bId].debtReward = ivar[4];
     }
     else {
-      if (userInfo[acc][tId][bId].amount >= liquidity) {
-        userInfo[acc][tId][bId].amount -= liquidity;
+      if (userInfo[acc][pId][bId].amount >= liquidity) {
+        userInfo[acc][pId][bId].amount -= liquidity;
       }
       else {
-        userInfo[acc][tId][bId].amount = 0;
+        userInfo[acc][pId][bId].amount = 0;
       }
-      userInfo[acc][tId][bId].debtReward = 0;
+      userInfo[acc][pId][bId].debtReward = 0;
     }
-    userInfo[acc][tId][bId].rtrIndex = poolInfoAll[tId].length - 1;
-    userInfo[acc][tId][bId].updatedAt = block.timestamp;
+    userInfo[acc][pId][bId].rtrIndex = poolInfoAll[pId].length - 1;
+    userInfo[acc][pId][bId].updatedAt = block.timestamp;
   }
 
-  function getSingleReward(address acc, uint256 tId, uint256 bId, uint256 currentReward, bool cutfee) public view returns(uint256, uint256) {
+  function getSingleReward(address acc, uint256 pId, uint256 bId, uint256 currentReward, bool cutfee) public view returns(uint256, uint256) {
     uint256[] memory jvar = new uint256[](7);
     jvar[0] = 0;  // extraLp
-    jvar[1] = userInfo[acc][tId][bId].debtReward; // reward
-    jvar[2] = userInfo[acc][tId][bId].amount;     // stake[j]
+    jvar[1] = userInfo[acc][pId][bId].debtReward; // reward
+    jvar[2] = userInfo[acc][pId][bId].amount;     // stake[j]
     jvar[3] = 0; // reward for one stage
 
     if (jvar[2] > 0) {
-      uint256 t0 = userInfo[acc][tId][bId].rtrIndex;
-      uint256 tn = poolInfoAll[tId].length;
+      uint256 t0 = userInfo[acc][pId][bId].rtrIndex;
+      uint256 tn = poolInfoAll[pId].length;
       uint256 index = t0;
       while (index < tn) {
-        if (poolInfoAll[tId][index].rtr >= poolInfoAll[tId][t0].rtr) {
-          jvar[3] = (jvar[2] + jvar[0]) * (poolInfoAll[tId][index].rtr - poolInfoAll[tId][t0].rtr) / MULTIPLIER;
+        if (poolInfoAll[pId][index].rtr >= poolInfoAll[pId][t0].rtr) {
+          jvar[3] = (jvar[2] + jvar[0]) * (poolInfoAll[pId][index].rtr - poolInfoAll[pId][t0].rtr) / MULTIPLIER;
         }
         else {
           jvar[3] = 0;
         }
-        if (poolInfoAll[tId][index].reInvested) {
-          jvar[0] += jvar[3] * reInvestInfo[tId][poolInfoAll[tId][index].reInvestIndex-1].liquidity / reInvestInfo[tId][poolInfoAll[tId][index].reInvestIndex-1].reward;
+        if (poolInfoAll[pId][index].reInvested) {
+          jvar[0] += jvar[3] * reInvestInfo[tId][poolInfoAll[pId][index].reInvestIndex-1].liquidity / reInvestInfo[tId][poolInfoAll[tId][index].reInvestIndex-1].reward;
           t0 = index;
           jvar[3] = 0;
         }
@@ -167,8 +162,8 @@ contract LCPoolPCv3Ledger is Ownable {
       }
       jvar[1] += jvar[3];
 
-      if (poolInfoAll[tId][tn-1].tvl > 0 && currentReward >= poolInfoAll[tId][tn-1].prevReward) {
-        jvar[1] = jvar[1] + (jvar[2] + jvar[0]) * (currentReward - poolInfoAll[tId][tn-1].prevReward) / poolInfoAll[tId][tn-1].tvl;
+      if (poolInfoAll[pId][tn-1].tvl > 0 && currentReward >= poolInfoAll[pId][tn-1].prevReward) {
+        jvar[1] = jvar[1] + (jvar[2] + jvar[0]) * (currentReward - poolInfoAll[pId][tn-1].prevReward) / poolInfoAll[pId][tn-1].tvl;
       }
     }
 
@@ -196,7 +191,7 @@ contract LCPoolPCv3Ledger is Ownable {
     return (jvar[0], jvar[1]);
   }
 
-  function getReward(address account, uint256[] memory tokenId, uint256[] memory basketIds) public view
+  function getReward(address account, address lcPoolPR, uint256[] memory tokenId, address[] memory guage, uint256[] memory basketIds) public view
     returns(uint256[] memory, uint256[] memory)
   {
     uint256 bLen = basketIds.length;
@@ -204,7 +199,7 @@ contract LCPoolPCv3Ledger is Ownable {
     uint256[] memory extraLp = new uint256[](len);
     uint256[] memory reward = new uint256[](len);
     for (uint256 x = 0; x < tokenId.length; x ++) {
-      uint256 currentReward = IMasterChefv3(v3MasterChef).pendingCake(tokenId[x]);
+      uint256 currentReward = IGuage(guage[x]).rewards(lcPoolPR);
       if (poolInfoAll[tokenId[x]].length > 0) {
         currentReward += poolInfoAll[tokenId[x]][poolInfoAll[tokenId[x]].length-1].prevReward;
       }
