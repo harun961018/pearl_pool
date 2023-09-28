@@ -29,7 +29,7 @@ module.exports = {
   },
   networks: {
     sepolia: {
-      url: `https://sepolia.infura.io/v3/${INFURA_API_KEY}`,
+      url: `https://polygon-mumbai.infura.io/v3/${INFURA_API_KEY}`,
       accounts: [SEPOLIA_PRIVATE_KEY],
     },
     // hardhat: {
@@ -39,7 +39,7 @@ module.exports = {
     // }
   },
   etherscan: {
-    apiKey: "3TXXGES3FMQEPY77CGJK9UN9H7BBDMTFNY"
+    apiKey: "3BBU9KSJVT6YPQ25FKGSIQ24MBUTSZ6HB6"
   },
   defaultNetwork: "sepolia",
   viaIR: true,

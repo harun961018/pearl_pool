@@ -11,7 +11,7 @@ contract LCPoolPRLedger is Ownable {
 
   uint256 private constant MULTIPLIER = 1_0000_0000_0000_0000;
 
-  // token0 -> token1 -> fee -> nftId
+  // token0 -> token1 -> poolId
   mapping (address => mapping(address => uint256)) public poolToId;
 
   struct RewardTVLRate {
