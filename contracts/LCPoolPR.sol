@@ -243,7 +243,7 @@ contract LCPoolPR is Ownable {
     bool claimReward
   ) internal returns(uint256, uint256, uint256, uint256, uint256) {
     uint256[] memory rvar = new uint256[](8);
-    rvar[0] = ILCPoolPRLedger(ledger).poolToId(info.pair[0], info.pair[1]); // poolId
+    rvar[0] = ILCPoolPRLedger(ledger).poolToId(info.pair[0], info.pair[1], info.stable); // poolId
     rvar[1] = IERC20(rewardToken).balanceOf(address(this)); // reward
     rvar[2] = 0; // extraLp
     rvar[6] = 0; // claim extra lp
@@ -286,14 +286,14 @@ contract LCPoolPR is Ownable {
     uint256[2] calldata minAmounts
   ) internal returns(uint256, uint256) {
     (uint256 amount0, uint256 amount1) = _depositSwap(info.token, iAmount, info.pair, mtoken, percents, paths);
-    uint256 poolId = ILCPoolPRLedger(ledger).poolToId(info.pair[0], info.pair[1]); // poolId
+    uint256 poolId = ILCPoolPRLedger(ledger).poolToId(info.pair[0], info.pair[1], info.stable); // poolId
     uint256 liquidity = 0;
     uint256[] memory amount = new uint256[](2);
     if (poolId == 0) {
       address pair = IPairFactory(pairFactory).getPair(info.pair[0], info.pair[1], info.stable);
       poolId = getPairIndex(pair);
       require(poolId > 0, "there is no pool for token pairs");
-      ILCPoolPRLedger(ledger).setPoolToId(info.pair[0], info.pair[1], poolId);
+      ILCPoolPRLedger(ledger).setPoolToId(info.pair[0], info.pair[1], info.stable, poolId);
     }
 
     uint256 deadline = block.timestamp + 50000;
@@ -387,7 +387,7 @@ contract LCPoolPR is Ownable {
     swapPath[3] memory paths,
     uint256[2] memory minAmounts
   ) internal returns(uint256, uint256, uint256) {
-    uint256 poolId = ILCPoolPRLedger(ledger).poolToId(info.pair[0], info.pair[1]);
+    uint256 poolId = ILCPoolPRLedger(ledger).poolToId(info.pair[0], info.pair[1], info.stable);
     if (poolId == 0) {
       return (0, 0, 0);
     }
