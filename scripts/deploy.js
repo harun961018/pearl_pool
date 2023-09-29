@@ -7,23 +7,17 @@
 const hre = require("hardhat");
 
 async function main() {
-  const currentTimestampInSeconds = Math.round(Date.now() / 1000);
-  const unlockTime = currentTimestampInSeconds + 60;
-
-  const lockedAmount = hre.ethers.parseEther("0.001");
-
-  const lock = await hre.ethers.deployContract("Lock", [unlockTime], {
-    value: lockedAmount,
-  });
-
-  await lock.waitForDeployment();
-
-  console.log(
-    `Lock with ${ethers.formatEther(
-      lockedAmount
-    )}ETH and unlock timestamp ${unlockTime} deployed to ${lock.target}`
-  );
+  const _feeStrate =     "0x25590E925E429894729b90e394Ee2D28496e4bD7";
+  const _WETH =          "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9";
+  const _swapRouter =    "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9";
+  const _pairFactory =   "0x909a147253aed297048bE490fAe75087e8feAE65";
+  const _ledger =        "0xF3a1B24afbC6D3587cF777019D152817Ea08e017";
+  const _router =        "0xa71DD3813E1495C7D6fABbe17Ff230a36e443827";
+  const _reward =        "0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9";
+  // const LCPoolAVv3Ledger = await hre.ethers.deployContract("LCPoolAVv3Ledger", [_feeStrate]);
+  const test = await hre.ethers.deployContract("test", [_reward, _pairFactory, _router]);
 }
+
 
 // We recommend this pattern to be able to use async/await everywhere
 // and properly handle errors.
@@ -31,3 +25,4 @@ main().catch((error) => {
   console.error(error);
   process.exitCode = 1;
 });
+

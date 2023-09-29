@@ -56,6 +56,8 @@ contract LCPoolPR is Ownable {
   event LcFee(address account, address token, uint256 amount);
   event ClaimReward(address account, uint256 poolId, uint256 basketId, uint256 extraLp, uint256 reward);
 
+  event increaseliquidity(uint256 amount0, uint256 amount1, uint256 liquidity);
+  event decreaseliquidity(uint256 amount0, uint256 amount1);
   constructor (
     address _swapRouter,
     address _feeStrate,
@@ -501,7 +503,8 @@ contract LCPoolPR is Ownable {
     uint256 index = 0;
     while (index < pairLength) {
       if (pair == IPairFactory(pairFactory).allPairs(index)) {
-        return index++;
+        index++;
+        return index;
       }
       index++;
     }
@@ -509,5 +512,4 @@ contract LCPoolPR is Ownable {
     return index;
 
   }
-
 }
